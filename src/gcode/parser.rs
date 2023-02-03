@@ -9,11 +9,12 @@ use nom::{
     branch::alt,
     bytes::complete::{is_a, is_not, tag},
     character::complete::{char, u16, u32, u8},
-    combinator::{all_consuming, complete, map, map_res, opt, value},
+    combinator::{all_consuming, map, map_res, opt, value},
     multi::many1,
     sequence::{delimited, preceded, separated_pair},
     IResult,
 };
+use std::fmt;
 
 #[derive(Debug, Clone)]
 pub enum Line {
@@ -29,9 +30,32 @@ pub enum Line {
 
 impl Line {
     /// Parse program text line
-    pub fn parse(line: &str) -> Result<Line, nom::Err<nom::error::Error<&str>>> {
-        parse_codes(line)
-            .map(|(_, l)| l)
+    pub fn parse(line: &str) -> Result<Line, SimpleError> {
+        parse_codes(line).map(|(_, l)| l).map_err(|e| {
+            use nom::Err::*;
+            SimpleError(match e {
+                Incomplete(_) => format!("Incomplete data"),
+                Error(e) | Failure(e) => format!("Invalid syntax at '{}'", e.input),
+            })
+        })
+    }
+}
+
+impl fmt::Display for Line {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        use Line::*;
+        match self {
+            Empty => Ok(()),
+            MainProgram(x) => write!(f, "%MPF{x}"),
+            SubProgram(x) => write!(f, "%SPF{x}"),
+            Code(v) => {
+                for (i, x) in v.iter().enumerate() {
+                    let c = if i == 0 { "" } else { " " };
+                    write!(f, "{c}{x}")?;
+                }
+                Ok(())
+            }
+        }
     }
 }
 
@@ -54,19 +78,21 @@ fn parse_codes(line: &str) -> IResult<&str, Line> {
         map(preceded(char('L'), u16), Word::L),
         map(preceded(char('P'), u16), Word::P),
         map(preceded(char('D'), u8), Word::D),
-        map(preceded(char('R'), separated_pair(u8, char('='), Micrometer::parse)), |(a, b)| Word::R(a, b)),
         map(
-            delimited(char('('), is_not(")"), opt(char(')'))),
-            |s| Word::Comment(String::from(s)),
+            preceded(char('R'), separated_pair(u8, char('='), Micrometer::parse)),
+            |(a, b)| Word::R(a, b),
         ),
+        map(delimited(char('('), is_not(")"), opt(char(')'))), |s| {
+            Word::Comment(String::from(s))
+        }),
     );
 
-    all_consuming(complete(alt((
+    all_consuming(alt((
         map(delimited(tag("%MPF"), u8, spc), Line::MainProgram),
         map(delimited(tag("%SPF"), u8, spc), Line::SubProgram),
         map(many1(delimited(spc, alt(words), spc)), Line::Code),
         value(Line::Empty, spc),
-    ))))(line)
+    )))(line)
 }
 
 fn spc(s: &str) -> IResult<&str, &str> {

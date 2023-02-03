@@ -9,7 +9,12 @@ pub struct SimpleError(pub String);
 impl SimpleError {
     /// Accompany `SimpleError` with line number
     pub fn at_line(self, line: u64) -> LineError {
-        LineError { error: self, line }
+        LineError { error: self, line: Some(line) }
+    }
+
+    /// Accomply `SimpleError` with no line number
+    pub fn no_line(self) -> LineError {
+        LineError { error: self, line: None }
     }
 }
 
@@ -23,12 +28,14 @@ impl fmt::Display for SimpleError {
 #[derive(Debug)]
 pub struct LineError {
     error: SimpleError,
-    line: u64,
+    line: Option<u64>,
 }
 
 impl fmt::Display for LineError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        writeln!(f, "At line {}", self.line)?;
+        if let Some(line)  = self.line {
+            writeln!(f, "At line {line}:")?;
+        }
         self.error.fmt(f)
     }
 }

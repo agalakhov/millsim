@@ -4,11 +4,11 @@ use derive_more::{Add, AddAssign, Sub, SubAssign};
 use std::fmt;
 
 use nom::{
-    IResult,
     branch::alt,
     character::complete::{char, one_of, u32},
     combinator::{consumed, map, opt},
     sequence::{preceded, tuple},
+    IResult,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Add, AddAssign, Sub, SubAssign)]
@@ -134,5 +134,4 @@ mod tests {
         assert_eq!(um(".42"), Micrometer(420));
         assert_eq!(um("-.42"), Micrometer(-420));
     }
-
 }

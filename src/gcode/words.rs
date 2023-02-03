@@ -1,6 +1,7 @@
 //! G-Code words
 
 use super::{errors::SimpleError, types::Micrometer};
+use std::fmt;
 use strum::FromRepr;
 
 /// All supported code words
@@ -38,6 +39,29 @@ pub enum Word {
     Comment(String),
 }
 
+impl fmt::Display for Word {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        use Word::*;
+        match self {
+            N(x) => write!(f, "N{x}"),
+            G(w) => w.fmt(f),
+            M(w) => w.fmt(f),
+            D(x) => write!(f, "D{x}"),
+            S(x) => write!(f, "S{x}"),
+            F(x) => write!(f, "F{x}"),
+            I(x) => write!(f, "I{x}"),
+            J(x) => write!(f, "J{x}"),
+            X(x) => write!(f, "X{x}"),
+            Y(x) => write!(f, "Y{x}"),
+            Z(x) => write!(f, "Z{x}"),
+            L(x) => write!(f, "L{x}"),
+            P(x) => write!(f, "P{x}"),
+            R(x, y) => write!(f, "P{x}={y}"),
+            Comment(c) => write!(f, "({c})"),
+        }
+    }
+}
+
 /// All supported G codes
 #[derive(Debug, Clone, PartialEq, Eq, FromRepr)]
 pub enum GWord {
@@ -59,6 +83,12 @@ impl GWord {
     /// Convert integer designator to G code number
     pub fn from_number(n: u8) -> Result<Self, SimpleError> {
         GWord::from_repr(n as usize).ok_or_else(|| SimpleError(format!("Unknown G code 'G{n}'")))
+    }
+}
+
+impl fmt::Display for GWord {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "G{}", *self as u8)
     }
 }
 
@@ -90,3 +120,8 @@ impl MWord {
     }
 }
 
+impl fmt::Display for MWord {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "M{}", *self as u8)
+    }
+}
