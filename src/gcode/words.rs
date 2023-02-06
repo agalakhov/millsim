@@ -1,6 +1,6 @@
 //! G-Code words
 
-use super::{errors::SimpleError, types::Micrometer};
+use crate::{errors::SimpleError, types::Micrometer};
 use std::fmt;
 use strum::FromRepr;
 
@@ -42,11 +42,7 @@ pub enum Word {
 impl Word {
     /// Check if the word is executable
     pub fn is_executable(&self) -> bool {
-        match self {
-            Word::N(_) => false,
-            Word::Comment(_) => false,
-            _ => true,
-        }
+        !matches!(self, Word::N(_) | Word::Comment(_))
     }
 }
 

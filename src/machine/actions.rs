@@ -1,9 +1,9 @@
 //! Actions and machine commands
 
-use crate::gcode::{
+use crate::{
     errors::SimpleError,
-    words::{GWord, MWord, Word, Words},
-    Micrometer,
+    gcode::words::{GWord, MWord, Word, Words},
+    types::Micrometer,
 };
 use std::fmt;
 use strum::Display;
@@ -12,6 +12,7 @@ use strum::Display;
 pub struct Command {
     pub global: Option<Global>,
     pub movement: Option<Movement>,
+
     pub spindle_action: Option<SpindleAction>,
     pub water_action: Option<WaterAction>,
     pub coord_switch: Option<CoordSwitch>,

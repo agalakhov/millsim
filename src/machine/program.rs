@@ -1,10 +1,12 @@
 //! Program checker and decoder
 
 use super::actions::{Command, Global};
-use crate::gcode::{
+use crate::{
     errors::{LineError, SimpleError},
-    words::{MWord, Word, Words},
-    GCodeFile, Line,
+    gcode::{
+        words::{MWord, Word, Words},
+        GCodeFile, Line,
+    },
 };
 use std::{collections::BTreeMap, fmt};
 

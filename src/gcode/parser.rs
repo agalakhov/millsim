@@ -1,10 +1,7 @@
 //! G-Code parser
 
-use super::{
-    errors::SimpleError,
-    types::Micrometer,
-    words::{GWord, MWord, Word, Words},
-};
+use super::words::{GWord, MWord, Word, Words};
+use crate::{errors::SimpleError, types::Micrometer};
 use nom::{
     branch::alt,
     bytes::complete::{is_a, is_not, tag},

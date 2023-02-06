@@ -1,9 +1,7 @@
 //! G-code file parser
 
-use super::{
-    errors::{LineError, SimpleError},
-    parser::Line,
-};
+use super::parser::Line;
+use crate::errors::{LineError, SimpleError};
 use std::{
     fmt,
     fs::File,

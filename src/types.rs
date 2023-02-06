@@ -1,6 +1,6 @@
 //! Types for G-Code interpreter
 
-use derive_more::{Add, AddAssign, Sub, SubAssign, Neg};
+use derive_more::{Add, AddAssign, Neg, Sub, SubAssign};
 use std::fmt;
 
 use nom::{
@@ -11,7 +11,9 @@ use nom::{
     IResult,
 };
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Add, AddAssign, Sub, SubAssign, Neg)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Add, AddAssign, Sub, SubAssign, Neg,
+)]
 pub struct Micrometer(pub i64);
 
 impl Micrometer {
