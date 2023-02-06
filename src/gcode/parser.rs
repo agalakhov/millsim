@@ -3,7 +3,7 @@
 use super::{
     errors::SimpleError,
     types::Micrometer,
-    words::{GWord, MWord, Word},
+    words::{GWord, MWord, Word, Words},
 };
 use nom::{
     branch::alt,
@@ -25,7 +25,7 @@ pub enum Line {
     /// Sub program "%SPF" designator
     SubProgram(u8),
     /// Code line
-    Code(Vec<Word>),
+    Code(Words),
 }
 
 impl Line {
@@ -34,7 +34,7 @@ impl Line {
         parse_codes(line).map(|(_, l)| l).map_err(|e| {
             use nom::Err::*;
             SimpleError(match e {
-                Incomplete(_) => format!("Incomplete data"),
+                Incomplete(_) => "Incomplete data".into(),
                 Error(e) | Failure(e) => format!("Invalid syntax at '{}'", e.input),
             })
         })
@@ -48,13 +48,7 @@ impl fmt::Display for Line {
             Empty => Ok(()),
             MainProgram(x) => write!(f, "%MPF{x}"),
             SubProgram(x) => write!(f, "%SPF{x}"),
-            Code(v) => {
-                for (i, x) in v.iter().enumerate() {
-                    let c = if i == 0 { "" } else { " " };
-                    write!(f, "{c}{x}")?;
-                }
-                Ok(())
-            }
+            Code(v) => v.fmt(f),
         }
     }
 }
@@ -75,7 +69,7 @@ fn parse_codes(line: &str) -> IResult<&str, Line> {
         map(preceded(char('N'), u32), Word::N),
         map(preceded(char('S'), u16), Word::S),
         map(preceded(char('F'), u16), Word::F),
-        map(preceded(char('L'), u16), Word::L),
+        map(preceded(char('L'), u8), Word::L),
         map(preceded(char('P'), u16), Word::P),
         map(preceded(char('D'), u8), Word::D),
         map(
@@ -90,7 +84,9 @@ fn parse_codes(line: &str) -> IResult<&str, Line> {
     all_consuming(alt((
         map(delimited(tag("%MPF"), u8, spc), Line::MainProgram),
         map(delimited(tag("%SPF"), u8, spc), Line::SubProgram),
-        map(many1(delimited(spc, alt(words), spc)), Line::Code),
+        map(many1(delimited(spc, alt(words), spc)), |c| {
+            Line::Code(Words(c))
+        }),
         value(Line::Empty, spc),
     )))(line)
 }

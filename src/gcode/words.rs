@@ -30,13 +30,24 @@ pub enum Word {
     /// Z coordinate
     Z(Micrometer),
     /// L subprogram call
-    L(u16),
+    L(u8),
     /// P subprogram counter
     P(u16),
     /// R parameter
     R(u8, Micrometer),
     /// String comment
     Comment(String),
+}
+
+impl Word {
+    /// Check if the word is executable
+    pub fn is_executable(&self) -> bool {
+        match self {
+            Word::N(_) => false,
+            Word::Comment(_) => false,
+            _ => true,
+        }
+    }
 }
 
 impl fmt::Display for Word {
@@ -56,9 +67,22 @@ impl fmt::Display for Word {
             Z(x) => write!(f, "Z{x}"),
             L(x) => write!(f, "L{x}"),
             P(x) => write!(f, "P{x}"),
-            R(x, y) => write!(f, "P{x}={y}"),
+            R(x, y) => write!(f, "R{x}={y}"),
             Comment(c) => write!(f, "({c})"),
         }
+    }
+}
+
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
+pub struct Words(pub Vec<Word>);
+
+impl fmt::Display for Words {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        for (i, x) in self.0.iter().enumerate() {
+            let c = if i == 0 { "" } else { " " };
+            write!(f, "{c}{x}")?;
+        }
+        Ok(())
     }
 }
 
@@ -88,7 +112,7 @@ impl GWord {
 
 impl fmt::Display for GWord {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "G{}", *self as u8)
+        write!(f, "G{}", self.clone() as u8)
     }
 }
 
@@ -122,6 +146,6 @@ impl MWord {
 
 impl fmt::Display for MWord {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "M{}", *self as u8)
+        write!(f, "M{}", self.clone() as u8)
     }
 }
