@@ -165,7 +165,11 @@ impl Machine {
             }
         }
 
-        if let Some(mv) = &self.movement {
+        let mv = self.movement.as_ref().filter(|_| {
+            new_move || code.x.is_some() || code.y.is_some() || code.z.is_some()
+        });
+
+        if let Some(mv) = mv {
             match mv {
                 Movement::FastLine => {
                     if new_move {
