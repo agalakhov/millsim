@@ -1,6 +1,6 @@
 //! The milling machine simulator
 
-use super::actions::{Command, Global, Movement, SpindleAction, WaterAction};
+use super::actions::{Command, Global, Movement, SpindleAction, WaterAction, CoordSwitch};
 use crate::{
     errors::SimpleError,
     render::{Circle, Line, Render},
@@ -51,6 +51,8 @@ pub struct Machine {
 
     spindle_on: bool,
     water_on: bool,
+
+    relative: bool,
 }
 
 impl Machine {
@@ -102,6 +104,39 @@ impl Machine {
         self.feed.upd(code.feed);
         self.tool.upd(code.tool);
 
+        if let Some(csw) = code.coord_switch {
+            match csw {
+                CoordSwitch::Absolute => self.relative = false,
+                CoordSwitch::Relative => self.relative = true,
+            }
+        }
+
+        struct Coord {
+            x: Option<Micrometer>,
+            y: Option<Micrometer>,
+            z: Option<Micrometer>,
+        }
+
+        let coord = if self.relative {
+            let (x, y, z) = if let (Some(x), Some(y), Some(z)) = (self.x, self.y, self.z) {
+                (x, y, z)
+            } else {
+                return Err(SimpleError("Relative coordinates can only be used with fully defined position".into()))
+            };
+            
+            Coord {
+                x: code.raw_x.map(|a| a + x),
+                y: code.raw_y.map(|a| a + y),
+                z: code.raw_z.map(|a| a + z),
+            }
+        } else {
+           Coord {
+                x: code.raw_x,
+                y: code.raw_y,
+                z: code.raw_z,
+            } 
+        };
+
         let new_move = self.movement.upd(code.movement);
 
         if let Some(sp) = code.spindle_action {
@@ -128,9 +163,9 @@ impl Machine {
                             "Trying to turn off spindle while moving".into(),
                         ));
                     }
-                    code.x.prohibit("X")?;
-                    code.y.prohibit("Y")?;
-                    code.z.prohibit("Z")?;
+                    coord.x.prohibit("X")?;
+                    coord.y.prohibit("Y")?;
+                    coord.z.prohibit("Z")?;
                     code.i.prohibit("I")?;
                     code.j.prohibit("J")?;
                     self.spindle_on = false;
@@ -155,9 +190,9 @@ impl Machine {
                             "Coolant turned off while spindle still running".into(),
                         ));
                     }
-                    code.x.prohibit("X")?;
-                    code.y.prohibit("Y")?;
-                    code.z.prohibit("Z")?;
+                    coord.x.prohibit("X")?;
+                    coord.y.prohibit("Y")?;
+                    coord.z.prohibit("Z")?;
                     code.i.prohibit("I")?;
                     code.j.prohibit("J")?;
                     self.water_on = false;
@@ -166,7 +201,7 @@ impl Machine {
         }
 
         let mv = self.movement.as_ref().filter(|_| {
-            new_move || code.x.is_some() || code.y.is_some() || code.z.is_some()
+            new_move || coord.x.is_some() || coord.y.is_some() || coord.z.is_some()
         });
 
         if let Some(mv) = mv {
@@ -180,9 +215,9 @@ impl Machine {
 
                     if self.z.is_none() {
                         // No horizontal movement until Z is safe
-                        code.x.prohibit("X")?;
-                        code.y.prohibit("Y")?;
-                        let z = code.z.require("Z")?;
+                        coord.x.prohibit("X")?;
+                        coord.y.prohibit("Y")?;
+                        let z = coord.z.require("Z")?;
 
                         if z != self.cfg.safe_z {
                             return Err(SimpleError(
@@ -191,20 +226,20 @@ impl Machine {
                         }
                         self.z = Some(z);
                     } else if self.x.is_none() || self.y.is_none() {
-                        self.z.upd(code.z);
+                        self.z.upd(coord.z);
                         let z = self.z.unwrap();
-                        if self.z.unwrap() < self.cfg.safe_z {
+                        if z < self.cfg.safe_z {
                             return Err(SimpleError(
                                 "Unsafe movement without fully defininig the position".into(),
                             ));
                         }
 
-                        self.x.upd(code.x);
-                        self.y.upd(code.y);
+                        self.x.upd(coord.x);
+                        self.y.upd(coord.y);
                     } else {
-                        self.x.upd(code.x);
-                        self.y.upd(code.y);
-                        self.z.upd(code.z);
+                        self.x.upd(coord.x);
+                        self.y.upd(coord.y);
+                        self.z.upd(coord.z);
                     }
 
                     self.line(Line::Fast);
@@ -215,42 +250,42 @@ impl Machine {
                     code.i.prohibit("I")?;
                     code.j.prohibit("J")?;
                     self.prepare_cut()?;
-                    self.x.upd(code.x);
-                    self.y.upd(code.y);
-                    self.z.upd(code.z);
+                    self.x.upd(coord.x);
+                    self.y.upd(coord.y);
+                    self.z.upd(coord.z);
 
                     self.line(Line::Cut);
                 }
 
                 Movement::CircleCW => {
                     code.tool.prohibit("D")?;
-                    code.z.prohibit("Z")?;
+                    coord.z.prohibit("Z")?;
                     self.circle(
                         Circle::Cw,
                         code.i.require("I")?,
                         code.j.require("J")?,
-                        code.x.require("X")?,
-                        code.y.require("Y")?,
+                        coord.x.require("X")?,
+                        coord.y.require("Y")?,
                     )?;
                 }
 
                 Movement::CircleCCW => {
                     code.tool.prohibit("D")?;
-                    code.z.prohibit("Z")?;
+                    coord.z.prohibit("Z")?;
                     self.circle(
                         Circle::Ccw,
                         code.i.require("I")?,
                         code.j.require("J")?,
-                        code.x.require("X")?,
-                        code.y.require("Y")?,
+                        coord.x.require("X")?,
+                        coord.y.require("Y")?,
                     )?;
                 }
 
                 Movement::ToolChange => {
                     code.tool.require("D")?;
-                    code.x.prohibit("X")?;
-                    code.y.prohibit("Y")?;
-                    code.z.prohibit("Z")?;
+                    coord.x.prohibit("X")?;
+                    coord.y.prohibit("Y")?;
+                    coord.z.prohibit("Z")?;
                     code.i.prohibit("I")?;
                     code.j.prohibit("J")?;
 
@@ -285,9 +320,9 @@ impl Machine {
                 }
             }
         } else {
-            code.x.prohibit("X")?;
-            code.y.prohibit("Y")?;
-            code.z.prohibit("Z")?;
+            coord.x.prohibit("X")?;
+            coord.y.prohibit("Y")?;
+            coord.z.prohibit("Z")?;
             code.i.prohibit("I")?;
             code.j.prohibit("J")?;
         }

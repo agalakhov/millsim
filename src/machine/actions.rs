@@ -17,9 +17,9 @@ pub struct Command {
     pub water_action: Option<WaterAction>,
     pub coord_switch: Option<CoordSwitch>,
 
-    pub x: Option<Micrometer>,
-    pub y: Option<Micrometer>,
-    pub z: Option<Micrometer>,
+    pub raw_x: Option<Micrometer>,
+    pub raw_y: Option<Micrometer>,
+    pub raw_z: Option<Micrometer>,
     pub i: Option<Micrometer>,
     pub j: Option<Micrometer>,
 
@@ -80,9 +80,9 @@ impl Command {
                 F(n) => cmd.feed.setn("F[eed]", *n)?,
                 D(n) => cmd.tool.setn("D (tool)", *n)?,
 
-                X(n) => cmd.x.setn("X", *n)?,
-                Y(n) => cmd.y.setn("Y", *n)?,
-                Z(n) => cmd.z.setn("Z", *n)?,
+                X(n) => cmd.raw_x.setn("X", *n)?,
+                Y(n) => cmd.raw_y.setn("Y", *n)?,
+                Z(n) => cmd.raw_z.setn("Z", *n)?,
                 I(n) => cmd.i.setn("I (center X)", *n)?,
                 J(n) => cmd.j.setn("J (center Y)", *n)?,
 

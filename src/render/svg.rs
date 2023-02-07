@@ -35,7 +35,7 @@ impl Svg {
         });
 
         if cur.width != tool.to_mm() || cur.ty != ty {
-            let path = self.position.iter().cloned().map(PathEl::MoveTo).collect();
+            let path = self.position.iter().cloned().map(PathEl::Move).collect();
             self.items.push(self.current.replace(DrawingItem {
                 path,
                 ty,
@@ -59,9 +59,9 @@ impl Render for Svg {
         let it = self.prepare(tool, ty);
         if old_pos != Some(point) {
             it.path.push(if it.path.is_empty() {
-                PathEl::MoveTo(point)
+                PathEl::Move(point)
             } else {
-                PathEl::LineTo(point)
+                PathEl::Line(point)
             });
         }
         self.position = Some(point);
@@ -91,8 +91,8 @@ impl Render for Svg {
                 Circle::Ccw => ArcKind::SmallLeft,
             };
 
-            it.path.push(PathEl::ArcTo { r, end: (ix, iy), kind });
-            it.path.push(PathEl::ArcTo { r, end, kind });
+            it.path.push(PathEl::Arc { r, end: (ix, iy), kind });
+            it.path.push(PathEl::Arc { r, end, kind });
 
         } else {
             let a1 = (sy - cy).to_mm().atan2((sx - cx).to_mm());
@@ -119,7 +119,7 @@ impl Render for Svg {
                 }
             };
 
-            it.path.push(PathEl::ArcTo { r, end, kind });
+            it.path.push(PathEl::Arc { r, end, kind });
         }
 
         self.position = Some(end);
@@ -137,9 +137,9 @@ impl Render for Svg {
 
 #[derive(Debug)]
 enum PathEl {
-    MoveTo((Micrometer, Micrometer)),
-    LineTo((Micrometer, Micrometer)),
-    ArcTo {
+    Move((Micrometer, Micrometer)),
+    Line((Micrometer, Micrometer)),
+    Arc {
         r: f64,
         end: (Micrometer, Micrometer),
         kind: ArcKind,
@@ -150,9 +150,9 @@ impl fmt::Display for PathEl {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use PathEl::*;
         match self {
-            MoveTo((x, y)) => write!(f, "M{x} {yy}", yy = -*y),
-            LineTo((x, y)) => write!(f, "L{x} {yy}", yy = -*y),
-            ArcTo { r, end: (x, y), kind } => write!(f, "A{r} {r} 0 {kind} {x} {yy}", yy = -*y),
+            Move((x, y)) => write!(f, "M{x} {yy}", yy = -*y),
+            Line((x, y)) => write!(f, "L{x} {yy}", yy = -*y),
+            Arc { r, end: (x, y), kind } => write!(f, "A{r} {r} 0 {kind} {x} {yy}", yy = -*y),
         }
     }
 }
