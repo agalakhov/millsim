@@ -1,9 +1,9 @@
 //! The milling machine simulator
 
-use super::actions::{Command, Movement, SpindleAction, WaterAction};
+use super::actions::{Command, Global, Movement, SpindleAction, WaterAction};
 use crate::{
     errors::SimpleError,
-    render::{Circle, Render},
+    render::{Circle, Line, Render},
     types::Micrometer,
 };
 
@@ -55,9 +55,9 @@ pub struct Machine {
 
 impl Machine {
     #[allow(dead_code)]
-    pub fn with_render(render: Box<dyn Render>) -> Self {
+    pub fn with_render(render: Option<Box<dyn Render>>) -> Self {
         Self {
-            render: Some(render),
+            render,
             ..Self::default()
         }
     }
@@ -71,15 +71,33 @@ impl Machine {
     }
 
     #[allow(dead_code)]
-    pub fn with_render_and_config(render: Box<dyn Render>, cfg: MachineConfig) -> Self {
+    pub fn with_render_and_config(render: Option<Box<dyn Render>>, cfg: MachineConfig) -> Self {
         Self {
             cfg,
-            render: Some(render),
+            render,
             ..Self::default()
         }
     }
 
+    pub fn finalize(self) -> Option<Box<dyn Render>> {
+        self.render
+    }
+
     pub fn execute_command(&mut self, code: Command) -> Result<(), SimpleError> {
+        if let Some(Global::EndProgram) = code.global {
+            if self.spindle_on {
+                return Err(SimpleError("Ending program with spindle on".into()));
+            }
+
+            if self.water_on {
+                return Err(SimpleError("Ending program with coolant on".into()));
+            }
+
+            if self.z.unwrap_or(self.cfg.safe_z) < self.cfg.safe_z {
+                return Err(SimpleError("Ending program with too low Z".into()));
+            }
+        }
+
         self.speed.upd(code.speed);
         self.feed.upd(code.feed);
         self.tool.upd(code.tool);
@@ -93,16 +111,22 @@ impl Machine {
                 }
                 SpindleAction::SpindleOnCW => {
                     if !self.water_on {
-                        return Err(SimpleError("Trying to start spindle without ensuring coolant flow".into()))
+                        return Err(SimpleError(
+                            "Trying to start spindle without ensuring coolant flow".into(),
+                        ));
                     }
                     if self.speed.is_none() {
-                        return Err(SimpleError("Trying to start spindle without any speed".into()))
+                        return Err(SimpleError(
+                            "Trying to start spindle without any speed".into(),
+                        ));
                     }
                     self.spindle_on = true;
                 }
                 SpindleAction::SpindleOff => {
                     if new_move {
-                        return Err(SimpleError("Trying to turn off spindle while moving".into()))
+                        return Err(SimpleError(
+                            "Trying to turn off spindle while moving".into(),
+                        ));
                     }
                     code.x.prohibit("X")?;
                     code.y.prohibit("Y")?;
@@ -122,10 +146,14 @@ impl Machine {
                 }
                 WaterAction::WaterOff => {
                     if new_move {
-                        return Err(SimpleError("Trying to turn off coolant while moving".into()))
+                        return Err(SimpleError(
+                            "Trying to turn off coolant while moving".into(),
+                        ));
                     }
                     if self.spindle_on {
-                        return Err(SimpleError("Coolant turned off while spindle still running".into()))
+                        return Err(SimpleError(
+                            "Coolant turned off while spindle still running".into(),
+                        ));
                     }
                     code.x.prohibit("X")?;
                     code.y.prohibit("Y")?;
@@ -158,12 +186,6 @@ impl Machine {
                             ));
                         }
                         self.z = Some(z);
-
-                        if let (Some(render), Some(x), Some(y)) =
-                            (&mut self.render, &self.x, &self.y)
-                        {
-                            render.move_to((*x, *y), z);
-                        }
                     } else if self.x.is_none() || self.y.is_none() {
                         self.z.upd(code.z);
                         let z = self.z.unwrap();
@@ -175,24 +197,15 @@ impl Machine {
 
                         self.x.upd(code.x);
                         self.y.upd(code.y);
-
-                        if let (Some(render), Some(x), Some(y)) =
-                            (&mut self.render, &self.x, &self.y)
-                        {
-                            render.move_to((*x, *y), z);
-                        }
                     } else {
                         self.x.upd(code.x);
                         self.y.upd(code.y);
                         self.z.upd(code.z);
-
-                        if let (Some(render), Some(x), Some(y), Some(z)) =
-                            (&mut self.render, &self.x, &self.y, &self.z)
-                        {
-                            render.line_to((*x, *y), *z);
-                        }
                     }
+
+                    self.line(Line::Fast);
                 }
+
                 Movement::Line => {
                     code.tool.prohibit("D")?;
                     code.i.prohibit("I")?;
@@ -202,12 +215,9 @@ impl Machine {
                     self.y.upd(code.y);
                     self.z.upd(code.z);
 
-                    if let (Some(render), Some(x), Some(y), Some(z)) =
-                        (&mut self.render, &self.x, &self.y, &self.z)
-                    {
-                        render.line_to((*x, *y), *z);
-                    }
+                    self.line(Line::Cut);
                 }
+
                 Movement::CircleCW => {
                     code.tool.prohibit("D")?;
                     code.z.prohibit("Z")?;
@@ -219,6 +229,7 @@ impl Machine {
                         code.y.require("Y")?,
                     )?;
                 }
+
                 Movement::CircleCCW => {
                     code.tool.prohibit("D")?;
                     code.z.prohibit("Z")?;
@@ -230,6 +241,7 @@ impl Machine {
                         code.y.require("Y")?,
                     )?;
                 }
+
                 Movement::ToolChange => {
                     code.tool.require("D")?;
                     code.x.prohibit("X")?;
@@ -240,7 +252,7 @@ impl Machine {
 
                     if self.spindle_on || self.water_on {
                         return Err(SimpleError(
-                            "Turn off spindle and coolant before performing tool change".into()
+                            "Turn off spindle and coolant before performing tool change".into(),
                         ));
                     }
 
@@ -258,6 +270,7 @@ impl Machine {
                     self.movement = None;
                     self.z = None;
                 }
+
                 Movement::BuiltinCycle(_cycle) => {
                     code.tool.prohibit("D")?;
                     self.prepare_cut()?;
@@ -280,11 +293,11 @@ impl Machine {
 
     fn prepare_cut(&self) -> Result<(), SimpleError> {
         if !self.spindle_on {
-            return Err(SimpleError("Trying to cut with spindle off".into()))
+            return Err(SimpleError("Trying to cut with spindle off".into()));
         }
 
         if !self.water_on {
-            return Err(SimpleError("Trying to cut without coolant".into()))
+            return Err(SimpleError("Trying to cut without coolant".into()));
         }
 
         let speed = self.speed.unwrap_or(0);
@@ -314,6 +327,19 @@ impl Machine {
         Ok(())
     }
 
+    fn choose_tool(&self) -> Micrometer {
+        Micrometer::from_mm(6.0) // TODO
+    }
+
+    fn line(&mut self, ty: Line) {
+        let tool = self.choose_tool();
+        if let (Some(render), Some(x), Some(y), Some(z)) =
+            (&mut self.render, &self.x, &self.y, &self.z)
+        {
+            render.line_to(tool, ty, (*x, *y), *z);
+        }
+    }
+
     fn circle(
         &mut self,
         ty: Circle,
@@ -323,6 +349,7 @@ impl Machine {
         y: Micrometer,
     ) -> Result<(), SimpleError> {
         self.prepare_cut()?;
+        let tool = self.choose_tool();
         let start_x = self.x.expect("Bug: no current x");
         let start_y = self.y.expect("Bug: no current y");
 
@@ -340,7 +367,7 @@ impl Machine {
         }
 
         if let Some(render) = &mut self.render {
-            render.arc_to(ty, (cx, cy), (x, y));
+            render.arc_to(tool, ty, (cx, cy), (x, y));
         }
 
         self.x = Some(x);

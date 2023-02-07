@@ -9,3 +9,4 @@ edition = "2021"
 derive_more = "0.99.17"
 nom = "7.1.3"
 strum = { version = "0.24.1", features = ["derive"] }
+termcolor = "1.2.0"

@@ -1,6 +1,6 @@
 //! Rendering engine
 
+pub mod svg;
 mod traits;
-//pub mod cairo;
 
-pub use traits::{Circle, Render};
+pub use traits::{Circle, Line, Render};
