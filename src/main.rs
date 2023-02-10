@@ -34,8 +34,8 @@ fn run(path: impl AsRef<Path>, out_path: Option<impl AsRef<Path>>) -> Result<(),
 }
 
 fn main() {
-    let file = "bremse.ngc";
-    let out = "bremse.svg";
+    let file = "haken.ngc";
+    let out = "haken.svg";
 
     if let Err(e) = run(file, Some(out)) {
         let mut stderr = StandardStream::stderr(ColorChoice::Auto);

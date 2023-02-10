@@ -102,7 +102,11 @@ impl Machine {
 
         self.speed.upd(code.speed);
         self.feed.upd(code.feed);
-        self.tool.upd(code.tool);
+
+        let tool_changed = {
+            let tc = self.tool.is_some();
+            self.tool.upd(code.tool) && tc
+        };
 
         if let Some(csw) = code.coord_switch {
             match csw {
@@ -204,6 +208,8 @@ impl Machine {
             new_move || coord.x.is_some() || coord.y.is_some() || coord.z.is_some()
         });
 
+        let mut bad_tool_change = tool_changed;
+
         if let Some(mv) = mv {
             match mv {
                 Movement::FastLine => {
@@ -288,6 +294,7 @@ impl Machine {
                     coord.z.prohibit("Z")?;
                     code.i.prohibit("I")?;
                     code.j.prohibit("J")?;
+                    bad_tool_change = false;
 
                     if self.spindle_on || self.water_on {
                         return Err(SimpleError(
@@ -325,6 +332,10 @@ impl Machine {
             coord.z.prohibit("Z")?;
             code.i.prohibit("I")?;
             code.j.prohibit("J")?;
+        }
+
+        if bad_tool_change {
+            return Err(SimpleError("Tool change without stopping".into()))
         }
 
         Ok(())
